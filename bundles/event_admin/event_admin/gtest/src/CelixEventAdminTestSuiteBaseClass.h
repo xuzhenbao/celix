@@ -56,7 +56,7 @@ public:
         celix_eventAdmin_destroy(ea);
     }
 
-    void TestAddEventHandler(void (*addHandler)(void *handle, void *svc, const celix_properties_t *props), void (*removeHandler)(void *handle, void *svc, const celix_properties_t *props)) {
+    void TestAddEventHandler(void (*addHandler)(void *handle, void *svc, const celix_properties_t *props), void (*removeHandler)(void *handle, void *svc, const celix_properties_t *props), celix_array_list_t* topics = nullptr) {
         auto ea = celix_eventAdmin_create(ctx.get());
         EXPECT_TRUE(ea != nullptr);
         auto status = celix_eventAdmin_start(ea);
@@ -72,7 +72,11 @@ public:
         };
         auto props = celix_properties_create();
         celix_properties_set(props, CELIX_FRAMEWORK_SERVICE_VERSION, CELIX_EVENT_HANDLER_SERVICE_VERSION);
-        celix_properties_set(props, CELIX_EVENT_TOPIC, "org/celix/test");
+        if (topics) {
+            celix_properties_assignArrayList(props, CELIX_EVENT_TOPIC, topics);
+        } else {
+            celix_properties_set(props, CELIX_EVENT_TOPIC, "org/celix/test");
+        }
         auto handlerSvcId = celix_bundleContext_registerService(ctx.get(), &handler, CELIX_EVENT_HANDLER_SERVICE_NAME, props);
         ASSERT_TRUE(handlerSvcId >= 0);
 
@@ -93,7 +97,7 @@ public:
         celix_eventAdmin_destroy(ea);
     }
 
-    void TestSubscribeEvent(const char *topics) {
+    void TestSubscribeEvent(const char *topic) {
         auto ea = celix_eventAdmin_create(ctx.get());
         EXPECT_TRUE(ea != nullptr);
         auto status = celix_eventAdmin_start(ea);
@@ -109,7 +113,7 @@ public:
         };
         auto props = celix_properties_create();
         celix_properties_set(props, CELIX_FRAMEWORK_SERVICE_VERSION, CELIX_EVENT_HANDLER_SERVICE_VERSION);
-        celix_properties_set(props, CELIX_EVENT_TOPIC, topics);
+        celix_properties_set(props, CELIX_EVENT_TOPIC, topic);
 
         auto handlerSvcId = celix_bundleContext_registerService(ctx.get(), &handler, CELIX_EVENT_HANDLER_SERVICE_NAME, props);
         ASSERT_TRUE(handlerSvcId >= 0);

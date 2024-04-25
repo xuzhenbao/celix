@@ -51,6 +51,7 @@ public:
         celix_ei_expect_celix_arrayList_addLong(nullptr, 0, 0);
         celix_ei_expect_celix_elapsedtime(nullptr, 0, 0);
         celix_ei_expect_celix_arrayList_createWithOptions(nullptr, 0, nullptr);
+        celix_ei_expect_celix_stringHashMap_createWithOptions(nullptr, 0, nullptr);
     }
 };
 
@@ -149,29 +150,24 @@ TEST_F(CelixEventAdminErrorInjectionTestSuite, FailedToAllocMemoryForEventHandle
     });
 }
 
-TEST_F(CelixEventAdminErrorInjectionTestSuite, FailedToDupTopicsWhenAddingEventHandlerTest) {
-    TestAddEventHandler([](void *handle, void *svc, const celix_properties_t *props) {
-        celix_ei_expect_celix_utils_strdup((void*)&celix_eventAdmin_addEventHandlerWithProperties, 0, nullptr);
-        auto status = celix_eventAdmin_addEventHandlerWithProperties(handle, svc, props);
-        EXPECT_EQ(CELIX_ENOMEM, status);
-    }, [](void *handle, void *svc, const celix_properties_t *props) {
-        auto status = celix_eventAdmin_removeEventHandlerWithProperties(handle, svc, props);
-        EXPECT_EQ(CELIX_SUCCESS, status);
-    });
-}
-
 TEST_F(CelixEventAdminErrorInjectionTestSuite, FailedToCreateTopicsMapWhenAddingEventHandlerTest) {
+    celix_array_list_t* topics = celix_arrayList_createStringArray();
+    celix_arrayList_addString(topics, "org/celix/test1");
+    celix_arrayList_addString(topics, "org/celix/test2");
     TestAddEventHandler([](void *handle, void *svc, const celix_properties_t *props) {
-        celix_ei_expect_celix_stringHashMap_create((void*)&celix_eventAdmin_addEventHandlerWithProperties, 0, nullptr);
+        celix_ei_expect_celix_stringHashMap_createWithOptions((void*)&celix_eventAdmin_addEventHandlerWithProperties, 0, nullptr);
         auto status = celix_eventAdmin_addEventHandlerWithProperties(handle, svc, props);
         EXPECT_EQ(CELIX_ENOMEM, status);
     }, [](void *handle, void *svc, const celix_properties_t *props) {
         auto status = celix_eventAdmin_removeEventHandlerWithProperties(handle, svc, props);
         EXPECT_EQ(CELIX_SUCCESS, status);
-    });
+    }, topics);
 }
 
 TEST_F(CelixEventAdminErrorInjectionTestSuite, FailedToPutTopicToMapWhenAddingEventHandlerTest) {
+    celix_array_list_t* topics = celix_arrayList_createStringArray();
+    celix_arrayList_addString(topics, "org/celix/test1");
+    celix_arrayList_addString(topics, "org/celix/test2");
     TestAddEventHandler([](void *handle, void *svc, const celix_properties_t *props) {
         celix_ei_expect_celix_stringHashMap_put((void*)&celix_eventAdmin_addEventHandlerWithProperties, 0, CELIX_ENOMEM);
         auto status = celix_eventAdmin_addEventHandlerWithProperties(handle, svc, props);
@@ -179,7 +175,7 @@ TEST_F(CelixEventAdminErrorInjectionTestSuite, FailedToPutTopicToMapWhenAddingEv
     }, [](void *handle, void *svc, const celix_properties_t *props) {
         auto status = celix_eventAdmin_removeEventHandlerWithProperties(handle, svc, props);
         EXPECT_EQ(CELIX_SUCCESS, status);
-    });
+    }, topics);
 }
 
 TEST_F(CelixEventAdminErrorInjectionTestSuite, FailedToPutHandlerToMapWhenAddingEventHandlerTest) {

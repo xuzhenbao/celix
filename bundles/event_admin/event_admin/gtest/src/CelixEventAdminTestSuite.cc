@@ -115,7 +115,16 @@ TEST_F(CelixEventAdminTestSuite, SubscribePrefixTopicTest) {
 }
 
 TEST_F(CelixEventAdminTestSuite, SubscribeMultipleTopicsTest) {
-    TestSubscribeEvent("org/celix/test,org/celix/test2");
+    celix_array_list_t* topics = celix_arrayList_createStringArray();
+    celix_arrayList_addString(topics, "org/celix/test1");
+    celix_arrayList_addString(topics, "org/celix/test2");
+    TestAddEventHandler([](void *handle, void *svc, const celix_properties_t *props) {
+        auto status = celix_eventAdmin_addEventHandlerWithProperties(handle, svc, props);
+        EXPECT_EQ(CELIX_SUCCESS, status);
+    }, [](void *handle, void *svc, const celix_properties_t *props) {
+        auto status = celix_eventAdmin_removeEventHandlerWithProperties(handle, svc, props);
+        EXPECT_EQ(CELIX_SUCCESS, status);
+    }, topics);
 }
 
 TEST_F(CelixEventAdminTestSuite, SendEventTest) {
@@ -281,6 +290,26 @@ TEST_F(CelixEventAdminTestSuite, SendEventWithMatchingAllTopicHandlerTest) {
         EXPECT_STREQ("org/celix/test", topic);
         return CELIX_SUCCESS;
     });
+}
+
+TEST_F(CelixEventAdminTestSuite, SendEventButHandlerMarkedBlackListedTest) {
+    setenv("CELIX_EVENT_ADMIN_MAX_HANDLE_EVENT_TIME", "1", 1);
+    TestPublishEvent("org/celix/test", nullptr, [](celix_event_admin_t *ea) {
+        auto status = celix_eventAdmin_sendEvent(ea, "org/celix/test", nullptr);
+        EXPECT_EQ(CELIX_SUCCESS, status);
+        status = celix_eventAdmin_sendEvent(ea, "org/celix/test", nullptr);
+        EXPECT_EQ(CELIX_SUCCESS, status);
+    }, [](void *handle, const char *topic, const celix_properties_t *props) {
+        (void)handle;
+        (void)props;
+        static int count = 0;
+        count++;
+        EXPECT_TRUE(count == 1);
+        EXPECT_STREQ("org/celix/test", topic);
+        sleep(2);
+        return CELIX_SUCCESS;
+    });
+    unsetenv("CELIX_EVENT_ADMIN_MAX_HANDLE_EVENT_TIME");
 }
 
 TEST_F(CelixEventAdminTestSuite, PostEventTest) {
@@ -466,6 +495,28 @@ TEST_F(CelixEventAdminTestSuite, PostMutilEventToUnorderedHandlerTest) {
     }, true);
 }
 
+TEST_F(CelixEventAdminTestSuite, PostEventButHandlerMarkedBlackListedTest) {
+    setenv("CELIX_EVENT_ADMIN_MAX_HANDLE_EVENT_TIME", "1", 1);
+    TestPublishEvent("org/celix/test", nullptr, [](celix_event_admin_t *ea) {
+        auto status = celix_eventAdmin_postEvent(ea, "org/celix/test", nullptr);
+        EXPECT_EQ(CELIX_SUCCESS, status);
+        auto eventDone = WaitForEventDone(30);
+        EXPECT_TRUE(eventDone);
+        status = celix_eventAdmin_postEvent(ea, "org/celix/test", nullptr);
+        EXPECT_EQ(CELIX_SUCCESS, status);
+        eventDone = WaitForEventDone(1);
+        EXPECT_FALSE(eventDone);
+    }, [](void *handle, const char *topic, const celix_properties_t *props) {
+        (void)handle;
+        (void)props;
+        EXPECT_STREQ("org/celix/test", topic);
+        sleep(2);
+        HandleEventDone();
+        return CELIX_SUCCESS;
+    });
+    unsetenv("CELIX_EVENT_ADMIN_MAX_HANDLE_EVENT_TIME");
+}
+
 TEST_F(CelixEventAdminTestSuite, MutilpleEventHandlerSubscribeMutilpleTopicTest) {
     TestEventAdmin([](celix_event_admin_t *ea, celix_bundle_context_t *ctx) {
         celix_event_handler_service_t handler;
@@ -528,6 +579,17 @@ TEST_F(CelixEventAdminTestSuite, EventHandlerNoTopicTest) {
         auto status = celix_eventAdmin_removeEventHandlerWithProperties(handle, svc, propsCopy.get());
         EXPECT_EQ(CELIX_SUCCESS, status);
     });
+}
+
+TEST_F(CelixEventAdminTestSuite, EventHandlerTopicListEmptyTest) {
+    celix_array_list_t* topics = celix_arrayList_createStringArray();
+    TestAddEventHandler([](void *handle, void *svc, const celix_properties_t *props) {
+        auto status = celix_eventAdmin_addEventHandlerWithProperties(handle, svc, props);
+        EXPECT_EQ(CELIX_ILLEGAL_ARGUMENT, status);
+    }, [](void *handle, void *svc, const celix_properties_t *props) {
+        auto status = celix_eventAdmin_removeEventHandlerWithProperties(handle, svc, props);
+        EXPECT_EQ(CELIX_SUCCESS, status);
+    }, topics);
 }
 
 TEST_F(CelixEventAdminTestSuite, EventHandlerNoServiceIdTest) {

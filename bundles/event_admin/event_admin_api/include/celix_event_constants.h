@@ -74,15 +74,15 @@ extern "C" {
  * topic-description := '*' | topic ( '/&zwj;*' )?  \n
  * topic := token ( '/' token )*    \n
  *
- * The event handler also can specify multiple topics by providing a comma separated list of topics.
+ * The value being a string(char*) or string array(celix_array_list_t of string).
+ * The event handler can specify multiple topics by providing a topic string array.
  *
  * @example
  * - "com/acme/&zwj;*"                         Indicates all topics beginning with "com/acme/"   \n
  * - "com/acme/MyEvent"                       Indicates only the specific event which topic is "com/acme/MyEvent"  \n
  * - "*"                                      Indicates all topics   \n
- * - "com/acme/MyEvent,com/acme/MyOtherEvent" Indicates the specific events with topics "com/acme/MyEvent" and "com/acme/MyOtherEvent"
+ * - String array list which be filled in "com/acme/MyEvent" and "com/acme/MyOtherEvent" Indicates the specific events with topics "com/acme/MyEvent" or "com/acme/MyOtherEvent"
  *
- * @todo Use string array instead of comma-separated list.(depends on https://github.com/apache/celix/issues/674)
  */
 #define CELIX_EVENT_TOPIC "event.topics"
 

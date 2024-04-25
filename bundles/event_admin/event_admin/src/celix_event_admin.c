@@ -39,7 +39,7 @@
 
 //Belows parameters are not configurable, consider its configurability until a real need arises.
 #define CELIX_EVENT_ADMIN_MAX_PARALLEL_EVENTS_OF_HANDLER(handlerThNr) ((handlerThNr)/3 + 1) //max parallel async event for a single handler
-#define CELIX_EVENT_ADMIN_MAX_HANDLE_EVENT_TIME 60 //seconds
+#define CELIX_EVENT_ADMIN_MAX_HANDLE_EVENT_TIME_DEFAULT 60 //seconds
 #define CELIX_EVENT_ADMIN_MAX_EVENT_QUEUE_SIZE 512 //events
 
 typedef struct celix_event_handler {
@@ -65,6 +65,7 @@ struct celix_event_admin {
     celix_bundle_context_t* ctx;
     celix_log_helper_t* logHelper;
     unsigned int handlerThreadNr;
+    unsigned int maxHandleEventTimeInSeconds;
     celix_thread_rwlock_t lock;//projects: channels,eventHandlers
     celix_event_channel_t channelMatchingAllEvents;
     celix_string_hash_map_t* channelsMatchingTopic; //key: topic, value: celix_event_channel_t *
@@ -97,6 +98,7 @@ celix_event_admin_t* celix_eventAdmin_create(celix_bundle_context_t* ctx) {
         celix_logHelper_error(logHelper, "CELIX_EVENT_ADMIN_HANDLER_THREADS is set to %i, but max is %i.", ea->handlerThreadNr, CELIX_EVENT_ADMIN_MAX_HANDLER_THREADS);
         return NULL;
     }
+    ea->maxHandleEventTimeInSeconds = (unsigned int)celix_bundleContext_getPropertyAsLong(ctx, "CELIX_EVENT_ADMIN_MAX_HANDLE_EVENT_TIME", CELIX_EVENT_ADMIN_MAX_HANDLE_EVENT_TIME_DEFAULT);
     celix_status_t status = celixThreadRwlock_create(&ea->lock, NULL);
     if (status != CELIX_SUCCESS) {
         celix_logHelper_error(logHelper, "Failed to create event admin lock.");
@@ -310,10 +312,14 @@ int celix_eventAdmin_addEventHandlerWithProperties(void* handle, void* svc, cons
     assert(svc != NULL);
     assert(props != NULL);
     celix_event_admin_t* ea = (celix_event_admin_t*)handle;
-    const char *topics = celix_properties_get(props, CELIX_EVENT_TOPIC, NULL);
-    if (topics == NULL) {
-        celix_logHelper_error(ea->logHelper, "Failed to add event handler. No %s property set", CELIX_EVENT_TOPIC);
-        return CELIX_ILLEGAL_ARGUMENT;
+    const celix_array_list_t* topicList = NULL;
+    const char *topic = celix_properties_getString(props, CELIX_EVENT_TOPIC);
+    if (topic == NULL) {
+        topicList = celix_properties_getStringArrayList(props, CELIX_EVENT_TOPIC);
+        if (topicList == NULL || celix_arrayList_size(topicList) == 0) {
+            celix_logHelper_error(ea->logHelper, "Failed to add event handler. No %s property set", CELIX_EVENT_TOPIC);
+            return CELIX_ILLEGAL_ARGUMENT;
+        }
     }
     long serviceId = celix_properties_getAsLong(props, CELIX_FRAMEWORK_SERVICE_ID, -1L);
     if (serviceId < 0) {
@@ -335,30 +341,6 @@ int celix_eventAdmin_addEventHandlerWithProperties(void* handle, void* svc, cons
     handler->blackListed = false;
     handler->handlingAsyncEventCnt = 0;
 
-    celix_autofree char* topicsCopy = celix_utils_strdup(topics);
-    if (topicsCopy == NULL) {
-        celix_logHelper_error(ea->logHelper, "Failed to dup topics %s.", topics);
-        return CELIX_ENOMEM;
-    }
-
-    celix_autoptr(celix_string_hash_map_t) topicsMap = celix_stringHashMap_create();//avoid topic duplicates
-    if (topicsMap == NULL) {
-        celix_logHelper_logTssErrors(ea->logHelper, CELIX_LOG_LEVEL_ERROR);
-        celix_logHelper_error(ea->logHelper, "Failed to create topics map.");
-        return CELIX_ENOMEM;
-    }
-    char* savePtr = NULL;
-    char* token = strtok_r(topicsCopy, ",", &savePtr);
-    while (token != NULL) {
-        char *trimmedToken = celix_utils_trimInPlace(token);
-        if (celix_stringHashMap_put(topicsMap, trimmedToken, NULL) != CELIX_SUCCESS) {
-            celix_logHelper_logTssErrors(ea->logHelper, CELIX_LOG_LEVEL_ERROR);
-            celix_logHelper_error(ea->logHelper, "Failed to add topic %s to topics map.", trimmedToken);
-            return CELIX_ENOMEM;
-        }
-        token = strtok_r(NULL, ",", &savePtr);
-    }
-
     celix_autoptr(celix_filter_t) eventFilter = NULL;
     const char* eventFilterStr = celix_properties_get(props, CELIX_EVENT_FILTER, NULL);
     if (eventFilterStr) {
@@ -377,12 +359,35 @@ int celix_eventAdmin_addEventHandlerWithProperties(void* handle, void* svc, cons
         celix_logHelper_error(ea->logHelper, "Failed to add event handler(%s).", handler->serviceDescription);
         return status;
     }
-
-    CELIX_STRING_HASH_MAP_ITERATE(topicsMap, iter) {
-        celix_eventAdmin_subscribeTopicFor(ea, iter.key, handler);
+    if (topic != NULL) {
+        celix_eventAdmin_subscribeTopicFor(ea, topic, handler);
+    } else {/*topicList != NULL*/
+        celix_string_hash_map_create_options_t opts = CELIX_EMPTY_STRING_HASH_MAP_CREATE_OPTIONS;
+        opts.storeKeysWeakly = true;
+        celix_autoptr(celix_string_hash_map_t) topicMap = celix_stringHashMap_createWithOptions(&opts);//avoid topic duplicates
+        if (topicMap == NULL) {
+            celix_longHashMap_remove(ea->eventHandlers, handler->serviceId);
+            celix_logHelper_logTssErrors(ea->logHelper, CELIX_LOG_LEVEL_ERROR);
+            celix_logHelper_error(ea->logHelper, "Failed to create topics map.");
+            return CELIX_ENOMEM;
+        }
+        int size = celix_arrayList_size(topicList);
+        for (int i = 0; i < size; ++i) {
+            const char* t= celix_arrayList_getString(topicList, i);
+            assert(t != NULL);//celix_arrayList_addString cannot add NULL
+            if (celix_stringHashMap_put(topicMap, t, NULL) != CELIX_SUCCESS) {
+                celix_longHashMap_remove(ea->eventHandlers, handler->serviceId);
+                celix_logHelper_logTssErrors(ea->logHelper, CELIX_LOG_LEVEL_ERROR);
+                celix_logHelper_error(ea->logHelper, "Failed to add topic %s to topics map.", t);
+                return CELIX_ENOMEM;
+            }
+        }
+        CELIX_STRING_HASH_MAP_ITERATE(topicMap, iter) {
+            celix_eventAdmin_subscribeTopicFor(ea, iter.key, handler);
+        }
     }
 
-    celix_logHelper_debug(ea->logHelper, "Added event handler(%s) for topics %s", handler->serviceDescription, topics);
+    celix_logHelper_debug(ea->logHelper, "Added event handler(%s) for topics %s", handler->serviceDescription,  celix_properties_get(props, CELIX_EVENT_TOPIC, ""));
 
     celix_steal_ptr(eventFilter);
     celix_steal_ptr(handler);
@@ -508,7 +513,7 @@ static void celix_eventAdmin_deliverEventToHandler(celix_event_admin_t* ea, cons
         celix_logHelper_error(ea->logHelper, "Failed to handle event %s for handler(%s)", topic, eventHandler->serviceDescription);
     }
     double elapsedTime = celix_elapsedtime(CLOCK_MONOTONIC, startTime);
-    if (elapsedTime > CELIX_EVENT_ADMIN_MAX_HANDLE_EVENT_TIME) {
+    if (elapsedTime > ea->maxHandleEventTimeInSeconds) {
         celix_logHelper_error(ea->logHelper, "Event handler for topic %s took %f seconds, %s", topic, elapsedTime, eventHandler->serviceDescription);
         __atomic_store_n(&eventHandler->blackListed, true, __ATOMIC_RELEASE);
     }

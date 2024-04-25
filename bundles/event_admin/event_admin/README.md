@@ -38,9 +38,10 @@ event admin pubsub model, and events are delivered asynchronously.
 
 ### Properties/Configuration
 
-| **Properties**                         | **Type** | **Description**                                               | **Default value** |
-|----------------------------------------|----------|---------------------------------------------------------------|-----|
-| **CELIX_EVENT_ADMIN_HANDLER_THREADS**  | long     | The number of event handler threads. Its maximum value is 20. | 5   |
+| **Properties**                         | **Type** | **Description** | **Default value** |
+|----------------------------------------|----------|-----------------|-------------------|
+| **CELIX_EVENT_ADMIN_HANDLER_THREADS**  | long     | The number of event handler threads. Its maximum value is 20. | 5                 |
+| **CELIX_EVENT_ADMIN_MAX_HANDLE_EVENT_TIME** | unsigned int | The maximum time (in seconds) that the event handler can hold the event-delivery thread. If the event handler holds the event-delivery thread for more than this time, the event handler will be blacklisted, and will not be called again. | 60                |
 
 ### Software Design
 
