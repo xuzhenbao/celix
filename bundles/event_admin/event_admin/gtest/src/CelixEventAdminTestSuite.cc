@@ -502,6 +502,7 @@ TEST_F(CelixEventAdminTestSuite, PostEventButHandlerMarkedBlackListedTest) {
         EXPECT_EQ(CELIX_SUCCESS, status);
         auto eventDone = WaitForEventDone(30);
         EXPECT_TRUE(eventDone);
+        g_eventHandledFlag = false;
         status = celix_eventAdmin_postEvent(ea, "org/celix/test", nullptr);
         EXPECT_EQ(CELIX_SUCCESS, status);
         eventDone = WaitForEventDone(1);
