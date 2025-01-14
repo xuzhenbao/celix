@@ -86,6 +86,7 @@ public:
     void TestEventPublish(bool testAsyncEvent) {
         std::promise<void> receivedEventPromise;
         std::future<void> receivedEventFuture = receivedEventPromise.get_future();
+        fprintf(stderr, "aaaa, receivedEventPromise:%p\n", &receivedEventPromise);
         auto props = celix_properties_create();
         celix_properties_set(props, CELIX_EVENT_TOPIC, "testEvent");
         static celix_event_handler_service_t handler = {
@@ -94,6 +95,7 @@ public:
                     EXPECT_STREQ("testEvent", topic);
                     EXPECT_STREQ("value", celix_properties_get(properties, "key", ""));
                     auto promise = static_cast<std::promise<void> *>(handle);
+                    fprintf(stderr, "bbbb, receivedEventPromise:%p\n", promise);
                     try {
                         promise->set_value();
                     } catch (...) {
@@ -102,6 +104,7 @@ public:
                     return CELIX_SUCCESS;
                 }
         };
+        fprintf(stderr, "bbbb, receivedEventPromise:%p\n", handler.handle);
         celix_service_registration_options_t opts{};
         opts.svc = &handler;
         opts.serviceName = CELIX_EVENT_HANDLER_SERVICE_NAME;
