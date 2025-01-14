@@ -57,7 +57,7 @@ jobs:
           apache/celix-conan-build:latest /bin/bash -c \
           "cd /workspace/build && \
           source conanrun.sh && \
-          ctest --output-on-failure"          
+          ctest --output-on-failure -V"          
 
   container-apt-build-ubuntu:
     runs-on: ubuntu-22.04

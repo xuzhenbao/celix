@@ -44,8 +44,10 @@ public:
             execlp("mosquitto", "mosquitto", "-c", MOSQUITTO_CONF, nullptr);
             ADD_FAILURE() << "Failed to start mosquitto";
         }
+        fprintf(stderr, "Started mosquitto with pid %d\n", pid);
     }
     static void TearDownTestSuite() {
+        fprintf(stderr, "Stopping mosquitto with pid %d\n", pid);
         kill(pid, SIGKILL);
         waitpid(pid, nullptr, 0);
         mosquitto_lib_cleanup();
@@ -62,6 +64,7 @@ public:
             publisherCtx = std::shared_ptr<celix_bundle_context_t>{celix_framework_getFrameworkContext(publisherFw.get()),
                                                                    [](celix_bundle_context_t *){/*nop*/}};
             celix_framework_utils_installBundleSet(publisherFw.get(), INTEGRATED_BUNDLES, true);
+            fprintf(stderr, "Started publisher framework\n");
         }
         {
             auto props = celix_properties_create();
@@ -74,6 +77,7 @@ public:
             subscriberCtx = std::shared_ptr<celix_bundle_context_t>{
                     celix_framework_getFrameworkContext(subscriberFw.get()), [](celix_bundle_context_t *) {/*nop*/}};
             celix_framework_utils_installBundleSet(subscriberFw.get(), INTEGRATED_BUNDLES, true);
+            fprintf(stderr, "Started subscriber framework\n");
         }
     }
 
@@ -105,6 +109,8 @@ public:
         opts.properties = props;
         long handlerServiceId = celix_bundleContext_registerServiceWithOptions(subscriberCtx.get(), &opts);
         ASSERT_GE(handlerServiceId, 0);
+
+        fprintf(stderr, "Registered event handler\n");
 
         struct use_service_callback_handle {
             bool publishAsyncEvent;
@@ -138,6 +144,8 @@ public:
         auto found= celix_bundleContext_useServiceWithOptions(publisherCtx.get(), &useOpts);
         ASSERT_TRUE(found);
 
+        fprintf(stderr, "Published event\n");
+
         celix_bundleContext_unregisterService(subscriberCtx.get(), handlerServiceId);
     }
 
@@ -150,9 +158,13 @@ public:
 pid_t CelixEarpmIntegrationTestSuite::pid{0};
 
 TEST_F(CelixEarpmIntegrationTestSuite, SendEvent) {
+    fprintf(stderr, "Starting SendEvent test\n");
     TestEventPublish(false);
+    fprintf(stderr, "Finished SendEvent test\n");
 }
 
 TEST_F(CelixEarpmIntegrationTestSuite, PostEvent) {
+    fprintf(stderr, "Starting PostEvent test\n");
     TestEventPublish(true);
+    fprintf(stderr, "Finished PostEvent test\n");
 }
