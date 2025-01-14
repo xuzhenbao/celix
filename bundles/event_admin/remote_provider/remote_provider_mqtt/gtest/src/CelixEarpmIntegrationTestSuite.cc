@@ -89,13 +89,13 @@ public:
         fprintf(stderr, "aaaa, receivedEventPromise:%p\n", &receivedEventPromise);
         auto props = celix_properties_create();
         celix_properties_set(props, CELIX_EVENT_TOPIC, "testEvent");
-        static celix_event_handler_service_t handler = {
+        celix_event_handler_service_t handler = {
                 .handle = &receivedEventPromise,
                 .handleEvent = [](void* handle, const char* topic, const celix_properties_t* properties) {
                     EXPECT_STREQ("testEvent", topic);
                     EXPECT_STREQ("value", celix_properties_get(properties, "key", ""));
                     auto promise = static_cast<std::promise<void> *>(handle);
-                    fprintf(stderr, "bbbb, receivedEventPromise:%p\n", promise);
+                    fprintf(stderr, "cccc, receivedEventPromise:%p\n", promise);
                     try {
                         promise->set_value();
                     } catch (...) {
