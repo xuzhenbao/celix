@@ -130,18 +130,25 @@ public:
             auto callbackHandle = static_cast<struct use_service_callback_handle*>(handle);
             int tryCount = 300;
             while (tryCount-- > 0) {//wait remote handler online, and try again.
+                fprintf(stderr, "Publishing event, cnt:%d\n", tryCount);
                 auto status = callbackHandle->publishAsyncEvent ?
                               eventAdmin->postEvent(eventAdmin->handle, "testEvent", props) :
                               eventAdmin->sendEvent(eventAdmin->handle, "testEvent", props);
                 EXPECT_EQ(CELIX_SUCCESS, status);
+                fprintf(stderr, "Published event 1111\n");
                 auto futureStatus = callbackHandle->future.wait_for(std::chrono::milliseconds{100});
                 if (futureStatus == std::future_status::ready) {
+                    fprintf(stderr, "Received event\n");
                     break;
                 }
+                fprintf(stderr, "No event received yet\n");
             }
             EXPECT_TRUE(tryCount >= 0);
         };
+        fprintf(stderr, "Using event admin service\n");
+
         auto found= celix_bundleContext_useServiceWithOptions(publisherCtx.get(), &useOpts);
+        fprintf(stderr, "Using event admin service done, %d\n", (int)found);
         ASSERT_TRUE(found);
 
         fprintf(stderr, "Published event\n");
