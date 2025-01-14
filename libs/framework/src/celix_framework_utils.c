@@ -215,6 +215,7 @@ size_t celix_framework_utils_installBundleSet(celix_framework_t* fw, const char*
     char *bundles = celix_utils_strdup(bundleSet);
     for (char *url = strtok_r(bundles, delims, &savePtr); url != NULL; url = strtok_r(NULL, delims, &savePtr)) {
         long bndId = celix_framework_installBundle(fw, url, false);
+        fw_log(fw->logger, CELIX_LOG_LEVEL_TRACE, "%s, Installed bundle %s with id %li.",__FUNCTION__, url, bndId );
         if (bndId > 0) {
             installed += 1;
             celix_arrayList_addLong(bundleIds, bndId);
@@ -222,11 +223,17 @@ size_t celix_framework_utils_installBundleSet(celix_framework_t* fw, const char*
     }
     free(bundles);
 
+    fw_log(fw->logger, CELIX_LOG_LEVEL_TRACE, "%s, start Installed bundles.",__FUNCTION__ );
+
     for (int i = 0; i < celix_arrayList_size(bundleIds) && autoStart; ++i) {
         long bndId = celix_arrayList_getLong(bundleIds, i);
+        fw_log(fw->logger, CELIX_LOG_LEVEL_TRACE, "%s, Start bundle with id %li.",__FUNCTION__, bndId );
         celix_framework_startBundle(fw, bndId);
+        fw_log(fw->logger, CELIX_LOG_LEVEL_TRACE, "%s, Started bundle with id %li.",__FUNCTION__, bndId );
     }
     celix_arrayList_destroy(bundleIds);
+
+    fw_log(fw->logger, CELIX_LOG_LEVEL_TRACE, "%s, Done installing bundles.",__FUNCTION__ );
 
     return installed;
 }

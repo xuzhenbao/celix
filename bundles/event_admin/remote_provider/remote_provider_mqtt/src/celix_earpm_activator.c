@@ -197,6 +197,7 @@ static celix_status_t celix_eventAdminRemoteProviderMqttActivator_start(celix_ev
     }
     celix_steal_ptr(earpmDiscoveryCmp);
     celix_steal_ptr(earpmCmp);
+    fprintf(stderr, "Started Event Admin Remote Provider Mqtt\n");
     return CELIX_SUCCESS;
 }
 

@@ -259,13 +259,19 @@ void celix_earpm_destroy(celix_event_admin_remote_provider_mqtt_t* earpm) {
 celix_status_t celix_earpm_mqttBrokerEndpointAdded(void* handle, endpoint_description_t* endpoint, char* matchedFilter) {
     assert(handle != NULL);
     celix_event_admin_remote_provider_mqtt_t* earpm = (celix_event_admin_remote_provider_mqtt_t*)handle;
-    return celix_earpmClient_mqttBrokerEndpointAdded(earpm->mqttClient, endpoint, matchedFilter);
+    celix_logHelper_trace(earpm->logHelper, "Adding mqtt broker endpoint %s.", endpoint->id);
+    celix_status_t status =  celix_earpmClient_mqttBrokerEndpointAdded(earpm->mqttClient, endpoint, matchedFilter);
+    celix_logHelper_trace(earpm->logHelper, "Added mqtt broker endpoint %s. %d", endpoint->id, status);
+    return status;
 }
 
 celix_status_t celix_earpm_mqttBrokerEndpointRemoved(void* handle, endpoint_description_t* endpoint, char* matchedFilter) {
     assert(handle != NULL);
     celix_event_admin_remote_provider_mqtt_t* earpm = (celix_event_admin_remote_provider_mqtt_t*)handle;
-    return celix_earpmClient_mqttBrokerEndpointRemoved(earpm->mqttClient, endpoint, matchedFilter);
+    celix_logHelper_trace(earpm->logHelper, "Removing mqtt broker endpoint %s.", endpoint->id);
+    celix_status_t status =  celix_earpmClient_mqttBrokerEndpointRemoved(earpm->mqttClient, endpoint, matchedFilter);
+    celix_logHelper_trace(earpm->logHelper, "Removed mqtt broker endpoint %s. %d", endpoint->id, status);
+    return status;
 }
 
 static celix_earpm_event_handler_t* celix_earpm_createEventHandler(celix_event_admin_remote_provider_mqtt_t* earpm, const celix_properties_t* eventHandlerProperties) {
@@ -543,6 +549,8 @@ celix_status_t celix_earpm_addEventHandlerService(void* handle , void* service C
     assert(handle != NULL);
     celix_event_admin_remote_provider_mqtt_t* earpm = (celix_event_admin_remote_provider_mqtt_t*)handle;
 
+    celix_logHelper_trace(earpm->logHelper, "Adding event handler service.");
+
     celix_autoptr(celix_earpm_event_handler_t) handler = celix_earpm_createEventHandler(earpm, properties);
     if (handler == NULL) {
         return CELIX_SERVICE_EXCEPTION;
@@ -560,12 +568,16 @@ celix_status_t celix_earpm_addEventHandlerService(void* handle , void* service C
     celix_earpm_addHandlerInfoToRemote(earpm, handler);
 
     celix_steal_ptr(handler);
+
+    celix_logHelper_trace(earpm->logHelper, "Added event handler service.");
     return CELIX_SUCCESS;
 }
 
 celix_status_t celix_earpm_removeEventHandlerService(void* handle , void* service CELIX_UNUSED, const celix_properties_t* properties) {
     assert(handle != NULL);
     celix_event_admin_remote_provider_mqtt_t* earpm = (celix_event_admin_remote_provider_mqtt_t*)handle;
+
+    celix_logHelper_trace(earpm->logHelper, "Removing event handler service.");
 
     long serviceId = celix_properties_getAsLong(properties, CELIX_FRAMEWORK_SERVICE_ID, -1);
     if (serviceId < 0 ) {
@@ -584,14 +596,17 @@ celix_status_t celix_earpm_removeEventHandlerService(void* handle , void* servic
     celix_earpm_subOrUnsubRemoteEventsForHandler(earpm, handler, false);
 
     celix_longHashMap_remove(earpm->eventHandlers, serviceId);
-
+    celix_logHelper_trace(earpm->logHelper, "Removed event handler service.");
     return CELIX_SUCCESS;
 }
 
 celix_status_t celix_earpm_setEventAdminSvc(void* handle, void* eventAdminSvc) {
     assert(handle != NULL);
     celix_event_admin_remote_provider_mqtt_t* earpm = (celix_event_admin_remote_provider_mqtt_t*)handle;
-    return celix_earpmDeliverer_setEventAdminSvc(earpm->deliverer, (celix_event_admin_service_t *) eventAdminSvc);
+    celix_logHelper_trace(earpm->logHelper, "Setting event admin service.");
+    celix_status_t status = celix_earpmDeliverer_setEventAdminSvc(earpm->deliverer, (celix_event_admin_service_t *) eventAdminSvc);
+    celix_logHelper_trace(earpm->logHelper, "Set event admin service.");
+    return status;
 }
 
 static bool celix_event_matchRemoteHandler(const char* topic, const celix_properties_t* eventProps, const celix_earpm_remote_handler_info_t* info) {
